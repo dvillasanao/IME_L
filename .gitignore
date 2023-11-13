@@ -47,3 +47,36 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+.Rproj.user
+
+# Archivo 2020 
+/2020/Graficos/*
+/2020/Output/docs/*
+/2020/Output/IME_2020_files/
+/2020/Output/IME_2020.html
+/2020/Output/IME_2020.RData
+/2020/Output/PopUp/*.RDS
+/2020/Output/Shapes/*.rds
+
+# Archivo 2015 
+/2015/Graficos/*
+/2015/Output/docs/*
+/2015/Output/IME_2015_files/
+/2015/Output/IME_2015.html
+/2015/Output/IME_2015.RData
+/2015/Output/PopUp/*.RDS
+/2015/Output/Shapes/*.rds
+
+# Archivo 2010 
+/2010/Graficos/*
+/2010/Output/docs/*
+/2010/Output/IME_2010_files/
+/2010/Output/IME_2010.html
+/2010/Output/IME_2010.RData
+/2010/Output/PopUp/*.RDS
+/2010/Output/Shapes/*.rds
+
+## De manera temporal el flexdashboard
+IME_2010-2020.Rmd
+IME_2010-2020.html
+

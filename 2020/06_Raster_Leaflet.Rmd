@@ -1,0 +1,368 @@
+---
+title: "Leaflet 2020"
+author: "Diana Villasana Ocampo"
+output:
+   html_document:
+      highlight: tango
+      theme: flatly
+      toc: yes
+      toc_depth: 2
+      toc_float:
+        collapsed: yes
+---
+\usepackage{color}
+
+```{=html}
+<style>
+code.r{
+  font-size: 10px;
+}
+pre {
+  font-size: 12px
+}
+</style>
+
+<style>
+body {
+text-align: justify;
+font-style: normal;
+font-family: "Montserrat";
+font-size: 12px
+}
+h1.title {
+  font-size: 40px;
+  color: #000D3B;
+}
+h1 {
+  color: #B6854D;
+}
+h2 {
+  color: #172984;
+}
+h3 {
+  color: #172984;
+}
+</style>
+```
+
+```{=html}
+<style>
+.nav>li>a {
+    position: relative;
+    display: block;
+    padding: 10px 15px;
+    color: #0A2687;
+}
+.nav-pills>li.active>a, .nav-pills>li.active>a:hover, .nav-pills>li.active>a:focus {
+    color: #ffffff;
+    background-color: #09C2BC;
+}
+</style>
+```
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = FALSE, cache.lazy = FALSE, 
+                         eval = T, class.source = "fold-show")
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+options(encoding = "UTF8")
+```   
+ 
+
+```{r, echo=FALSE}
+rm(list = ls())
+```
+
+```{r, echo=FALSE}
+setwd(here::here())
+```
+
+
+**Font Stlye**  
+
+```{r, eval = FALSE}
+require(showtext)
+# activar showtext
+showtext_auto()
+font_add_google("Montserrat", "montserrat")
+```
+
+
+```{r}
+require(dplyr)
+#devtools::install_github("mdsumner/spdplyr")
+require(spdplyr)
+require(forcats)
+require(htmltools)
+require(leaflet)
+require(htmlwidgets)
+require(ggmap)
+require(ggplot2)
+require(ggridges)
+require(grDevices)
+require(ggpubr)
+require(forcats)
+require(rgdal)
+require(tibble)
+require(sf)
+require(stringr)
+require(RColorBrewer)
+require(leafgl)
+require(leaflet.extras)
+require(mapview)
+memory.size()
+invisible(utils::memory.limit(size = 6000000))
+#install.packages("doMC", repos="http://R-Forge.R-project.org")
+require(doMC)            # Foreach Parallel Adaptor for 'parallel'
+registerDoMC(cores = 10)   # 
+```
+
+## Índice de marginación 2020
+
+***Bases de datos***
+
+```{r}
+load("Output/IME_2020.RData")
+```
+
+
+**Shapefile estados 2020**
+
+```{r}
+shape_estados <- readOGR(dsn = "D:/MGN/MGN Diciembre 2020/MGN Diciembre 2020/conjunto_de_datos",
+                          layer = "00ent",
+                           encoding = "UTF-8",
+                            use_iconv = TRUE)
+
+shape_estados <- spTransform(shape_estados, CRSobj = CRS('+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'))
+
+shape_estados <- shape_estados %>%
+                  sp::spChFIDs(., str_pad(shape_estados@data$CVE_ENT, 2, "left", pad = "0"))
+```
+
+
+**Límites de los mapas**
+
+```{r}
+bounding_box <- st_bbox(shape_estados)
+bounding_box
+```
+
+
+## Paleta de colores 
+
+```{r}
+paleta <- c("#13322B", #Muy alto
+            "#086953", #Alto 
+            "#4C9562", #Medio
+            "#D1BB9E", #Bajo
+            "#C3BA6D") # Muy bajo
+
+#paleta <- c(rgb(219, 14, 14, max = 255),
+#            rgb(252, 114, 0, max = 255),
+#            rgb(252, 173, 0, max = 255),
+#            rgb(252, 236, 0, max = 255),
+#            rgb(239, 232, 170, max = 255))
+            
+## Paleta de colores                         
+mypalette <- leaflet::colorFactor(palette = paleta, 
+                                            domain = forcats::fct_relevel(IME_2020$GM_2020, c("Muy alto", "Alto", "Medio", "Bajo", "Muy bajo")), 
+                                            na.color = "transparent")
+```
+
+https://stackoverflow.com/questions/35096133/converting-shapefile-to-raster
+
+```{r}
+capa_estados <- readRDS("Output/Shapes/shape_estados.rds")
+capa_estados_1 <- readRDS("Output/Shapes/shape_estados_1.rds")
+capa_estados_2 <- readRDS("Output/Shapes/shape_estados_2.rds")
+capa_estados_3 <- readRDS("Output/Shapes/shape_estados_3.rds")
+capa_estados_4 <- readRDS("Output/Shapes/shape_estados_4.rds")
+capa_estados_5 <- readRDS("Output/Shapes/shape_estados_5.rds")
+```
+
+
+```{r}
+library(raster)
+ext_1 <- extent(bbox(capa_estados_1))
+ext_2 <- extent(bbox(capa_estados_2))
+ext_3 <- extent(bbox(capa_estados_3))
+ext_4 <- extent(bbox(capa_estados_4))
+ext_5 <- extent(bbox(capa_estados_5))
+
+## Tamaño de los pixeles
+gridsize <- 0.005
+
+#SpatialGrid
+spatialgrid_1 <- raster(ext_1, res = gridsize)
+spatialgrid_2 <- raster(ext_2, res = gridsize)
+spatialgrid_3 <- raster(ext_3, res = gridsize)
+spatialgrid_4 <- raster(ext_4, res = gridsize)
+spatialgrid_5 <- raster(ext_5, res = gridsize)
+
+## Rasterize the shapefile
+raster_estados_1 <- rasterize(x = capa_estados_1, y = spatialgrid_1)
+raster_estados_2 <- rasterize(x = capa_estados_2, y = spatialgrid_2)
+raster_estados_3 <- rasterize(x = capa_estados_3, y = spatialgrid_3)
+raster_estados_4 <- rasterize(x = capa_estados_4, y = spatialgrid_4)
+raster_estados_5 <- rasterize(x = capa_estados_5, y = spatialgrid_5)
+```
+
+
+**Se guardan como objetos** 
+
+```{r}
+saveRDS(raster_estados_1, file = "Output/Shapes/raster_estados_1.rds")
+saveRDS(raster_estados_2, file = "Output/Shapes/raster_estados_2.rds")
+saveRDS(raster_estados_3, file = "Output/Shapes/raster_estados_3.rds")
+saveRDS(raster_estados_4, file = "Output/Shapes/raster_estados_4.rds")
+saveRDS(raster_estados_5, file = "Output/Shapes/raster_estados_5.rds")
+```
+
+
+https://stackoverflow.com/questions/73151261/rasterize-lines-in-r-how-to-assign-max-value-to-a-cell
+
+```{r}
+## Tamaño de los pixeles
+gridsize <- 0.005
+
+# Se convierten en estructura de lineas 
+sldf_capa1 <- as(capa_estados_1, 'SpatialLinesDataFrame')
+sldf_capa2 <- as(capa_estados_2, 'SpatialLinesDataFrame')
+sldf_capa3 <- as(capa_estados_3, 'SpatialLinesDataFrame')
+sldf_capa4 <- as(capa_estados_4, 'SpatialLinesDataFrame')
+sldf_capa5 <- as(capa_estados_5, 'SpatialLinesDataFrame')
+
+
+#SpatialGrid
+spatialgrid_1 <- raster(sldf_capa1, res = gridsize)
+spatialgrid_2 <- raster(sldf_capa2, res = gridsize)
+spatialgrid_3 <- raster(sldf_capa3, res = gridsize)
+spatialgrid_4 <- raster(sldf_capa4, res = gridsize)
+spatialgrid_5 <- raster(sldf_capa5, res = gridsize)
+
+
+## Rasterize the shapelinesdataframe
+raster_l_estados_1 <- rasterize(sldf_capa1, spatialgrid_1)
+raster_l_estados_2 <- rasterize(sldf_capa2, spatialgrid_2)
+raster_l_estados_3 <- rasterize(sldf_capa3, spatialgrid_3)
+raster_l_estados_4 <- rasterize(sldf_capa4, spatialgrid_4)
+raster_l_estados_5 <- rasterize(sldf_capa5, spatialgrid_5)
+```
+
+
+**Se guardan como objetos** 
+
+```{r}
+saveRDS(raster_l_estados_1, file = "Output/Shapes/raster_lines_estados_1.rds")
+saveRDS(raster_l_estados_2, file = "Output/Shapes/raster_lines_estados_2.rds")
+saveRDS(raster_l_estados_3, file = "Output/Shapes/raster_lines_estados_3.rds")
+saveRDS(raster_l_estados_4, file = "Output/Shapes/raster_lines_estados_4.rds")
+saveRDS(raster_l_estados_5, file = "Output/Shapes/raster_lines_estados_5.rds")
+```
+
+```{r}
+# Se convierten en estructura de puntos
+spdf_capa1 <- as(sldf_capa1, "SpatialPointsDataFrame")
+spdf_capa2 <- as(sldf_capa2, "SpatialPointsDataFrame")
+spdf_capa3 <- as(sldf_capa3, "SpatialPointsDataFrame")
+spdf_capa4 <- as(sldf_capa4, "SpatialPointsDataFrame")
+spdf_capa5 <- as(sldf_capa5, "SpatialPointsDataFrame")
+
+gridsize <- 0.005
+
+spatialgrid_1 <- raster(spdf_capa1, res = gridsize)
+spatialgrid_2 <- raster(spdf_capa2, res = gridsize)
+spatialgrid_3 <- raster(spdf_capa3, res = gridsize)
+spatialgrid_4 <- raster(spdf_capa4, res = gridsize)
+spatialgrid_5 <- raster(spdf_capa5, res = gridsize)
+
+raster_p_estados_1 <- rasterize(spdf_capa1, spatialgrid_1, field = 1, update = TRUE, updateValue = "NA")
+raster_p_estados_2 <- rasterize(spdf_capa2, spatialgrid_2, field = 1, update = TRUE, updateValue = "NA")
+raster_p_estados_3 <- rasterize(spdf_capa3, spatialgrid_3, field = 1, update = TRUE, updateValue = "NA")
+raster_p_estados_4 <- rasterize(spdf_capa4, spatialgrid_4, field = 1, update = TRUE, updateValue = "NA")
+raster_p_estados_5 <- rasterize(spdf_capa5, spatialgrid_5, field = 1, update = TRUE, updateValue = "NA")
+
+plot(raster_p_estados_1)
+```
+
+
+
+
+```{r}
+leaflet_estados <- leaflet(options = leafletOptions(minZoom = 2, maxZoom = 8)) %>% 
+                    addTiles() %>% 
+                     setView(lat = 23.6260333, lng = -102.5375005, zoom = 5) %>%
+                      #setMaxBounds(lng1 = bounding_box[1],
+                       #            lat1 = bounding_box[2],
+                        #           lng2 = bounding_box[3],
+                         #          lat2 = bounding_box[4]) %>%
+                       addProviderTiles(providers$OpenSeaMap, 
+                                         options = providerTileOptions(minZoom = 2, maxZoom = 6)) %>%
+                        # capa de grado "Muy alto"
+                        addRasterImage(raster_estados_1, 
+                                        colors = paleta[1], 
+                                         opacity = 0.5, 
+                                          group = "Muy alto") %>%
+                        addRasterImage(x = raster_l_estados_1, 
+                                        colors = "white", 
+                                         opacity = 0.7,
+                                         group = "Muy alto") %>%
+                        # capa de grado "Alto"
+                        addRasterImage(x = raster_p_estados_2, 
+                                        colors = "white", 
+                                         opacity = 0.7, 
+                                         group = "Alto") %>%
+                        addRasterImage(raster_estados_2, 
+                                        colors = paleta[2], 
+                                         opacity = 0.5, 
+                                          group = "Alto") %>%
+                        # capa de grado "Medio"
+                        addRasterImage(x = raster_p_estados_3, 
+                                        colors = "white", 
+                                         opacity = 0.7, 
+                                         group = "Medio") %>%
+                        addRasterImage(raster_estados_3, 
+                                        colors = paleta[3], 
+                                         opacity = 0.5, 
+                                          group = "Medio") %>%
+                        # capa de grado "Bajo"
+                        addRasterImage(x = raster_p_estados_4, 
+                                        colors = "white", 
+                                         opacity = 0.7, 
+                                         group = "Bajo") %>%
+                        addRasterImage(raster_estados_4, 
+                                        colors = paleta[4], 
+                                         opacity = 0.5, 
+                                          group = "Bajo") %>%
+                        # capa de grado "Bajo"
+                        addRasterImage(x = raster_p_estados_5, 
+                                        colors = "white", 
+                                         opacity = 0.7,
+                                         group = "Muy bajo") %>%
+                        addRasterImage(raster_estados_5, 
+                                        colors = paleta[5], 
+                                         opacity = 0.5, 
+                                          group = "Muy bajo") %>%
+                        
+                        addResetMapButton() %>%
+                         addSearchOSM() %>%
+                          addScaleBar(position = "bottomright", 
+                                       options = scaleBarOptions(maxWidth = 100, 
+                                                                 metric = TRUE,
+                                                                 imperial = TRUE, 
+                                                                 updateWhenIdle = TRUE)) %>%
+                           addLegend("bottomright", 
+                                      colors = paleta, 
+                                       labels = c("Muy alto", "Alto", "Medio", "Bajo", "Muy bajo"),
+                                        values = ~forcats::fct_relevel(GM_2020, c("Muy alto", "Alto", "Medio", "Bajo", "Muy bajo")),
+                                         title = stringr::str_wrap("Grado de marginación", 15),
+                                          opacity =  0.7) %>%
+                            addLayersControl(overlayGroups = c("Muy alto", "Alto", "Medio", "Bajo", "Muy bajo"),
+                                              options = layersControlOptions(collapsed = FALSE)) 
+
+leaflet_estados
+
+saveWidget(leaflet_estados, "Graficos/leaflet_raster.html", selfcontained = TRUE)
+```
+
+

@@ -1,0 +1,187 @@
+---
+title: "Leaflet 2015"
+author: "Diana Villasana Ocampo"
+output:
+   html_document:
+      highlight: tango
+      theme: flatly
+      toc: yes
+      toc_depth: 2
+      toc_float:
+        collapsed: yes
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = FALSE, cache.lazy = FALSE, 
+                         eval = FALSE, class.source = "fold-show")
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+options(digits = 2, encoding = "UTF8")
+```   
+
+```{r, echo=FALSE}
+rm(list = ls())
+```
+
+```{r, echo=FALSE}
+setwd(here::here())
+```
+
+**Font Stlye**  
+
+```{r}
+require(showtext)
+# activar showtext
+showtext_auto()
+font_add_google("Montserrat", "montserrat")
+```
+
+
+```{r}
+require(dplyr)
+require(forcats)
+require(htmltools)
+require(leaflet)
+require(ggmap)
+require(ggplot2)
+require(ggridges)
+require(grDevices)
+require(ggpubr)
+require(forcats)
+require(rgdal)
+require(tibble)
+require(sf)
+require(stringr)
+```
+
+
+## Índice de marginación 2015
+
+**Bases de datos***
+
+```{r}
+load(paste0(here::here(), "/2015/Output/IME_2015.RData"))
+```
+
+
+## Shapefiles
+
+**Shapefile estados 2015**
+
+```{r}
+shape_estados <- readOGR(dsn ="D:/MGN/MGN Junio 2016/conjunto_de_datos", 
+                          layer = "areas_geoestadisticas_estatales",
+                           encoding = "UTF-8",
+                            use_iconv = TRUE)
+
+shape_estados <- spTransform(shape_estados, CRSobj = CRS('+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'))
+```
+
+## ShapefilesDataFrame
+
+**Se insertan los datos del índice de marginación y se seccionan por grado de marginación**
+
+### Estados 
+
+```{r}
+shape_estados@data <- shape_estados@data %>%
+                       select(CVE_ENT)
+
+shape_estados <- shape_estados %>%
+                  sp::spChFIDs(., str_pad(shape_estados@data$CVE_ENT, 2, "left", pad = "0"))
+```
+
+
+```{r}
+capa_estados <- shape_estados %>%
+                 spdplyr:::left_join.Spatial(., IME_2015 %>% 
+                                                 select(CVE_ENT, GM_2015) %>%  
+                                                  mutate(GM_2015 = fct_relevel(stringr::str_trim(.$GM_2015, "both"), c("Muy alto", "Alto", "Medio", "Bajo", "Muy bajo"))),
+                                                   by = c("CVE_ENT")) 
+```
+
+#### Capas de estados
+
+```{r}
+capa_estados_1 <- capa_estados %>%
+                   filter(GM_2015 == "Muy alto")
+capa_estados_2 <- capa_estados %>%
+                   filter(GM_2015 == "Alto")
+capa_estados_3 <- capa_estados %>%
+                   filter(GM_2015 == "Medio")
+capa_estados_4 <- capa_estados %>%
+                   filter(GM_2015 == "Bajo")
+capa_estados_5 <- capa_estados %>%
+                   filter(GM_2015 == "Muy bajo")
+```
+
+
+**Se guardan los shapefiles en un archivo `RDS`**
+
+```{r}
+saveRDS(capa_estados, paste0(here::here(), "/2015/Output/Shapes/shape_estados.rds"))
+saveRDS(capa_estados_1, paste0(here::here(), "/2015/Output/Shapes/shape_estados_1.rds"))
+saveRDS(capa_estados_2, paste0(here::here(), "/2015/Output/Shapes/shape_estados_2.rds"))
+saveRDS(capa_estados_3, paste0(here::here(), "/2015/Output/Shapes/shape_estados_3.rds"))
+saveRDS(capa_estados_4, paste0(here::here(), "/2015/Output/Shapes/shape_estados_4.rds"))
+saveRDS(capa_estados_5, paste0(here::here(), "/2015/Output/Shapes/shape_estados_5.rds"))
+```
+
+
+#### Geojson 
+
+```{r}
+require(geojsonio)
+capa_estados_json <- geojsonio::geojson_json(shape_estados, geometry = "polygon")
+capa_estados_1_json <- geojsonio::geojson_json(capa_estados_1 %>%
+                                                sp::spChFIDs(., str_pad(.@data$CVE_ENT, 2, "left", pad = "0")), 
+                                                 geometry = "polygon")
+capa_estados_2_json <- geojsonio::geojson_json(capa_estados_2 %>%
+                                                sp::spChFIDs(., str_pad(.@data$CVE_ENT, 2, "left", pad = "0")), 
+                                                 geometry = "polygon")
+capa_estados_3_json <- geojsonio::geojson_json(capa_estados_3 %>%
+                                                sp::spChFIDs(., str_pad(.@data$CVE_ENT, 2, "left", pad = "0")), 
+                                                 geometry = "polygon")
+capa_estados_4_json <- geojsonio::geojson_json(capa_estados_4 %>%
+                                                sp::spChFIDs(., str_pad(.@data$CVE_ENT, 2, "left", pad = "0")), 
+                                                 geometry = "polygon")
+capa_estados_5_json <- geojsonio::geojson_json(capa_estados_5 %>%
+                                                sp::spChFIDs(., str_pad(.@data$CVE_ENT, 2, "left", pad = "0")), 
+                                                 geometry = "polygon")
+```
+
+
+```{r}
+# Se guarda en un archivo geojson 
+geojsonio::geojson_write(capa_estados_json, file = paste0(here::here(), "/2015/Output/Shapes/estados_json.geojson"))
+geojsonio::geojson_write(capa_estados_1_json, file = paste0(here::here(), "/2015/Output/Shapes/estados_1_json.geojson"))
+geojsonio::geojson_write(capa_estados_2_json, file = paste0(here::here(), "/2015/Output/Shapes/estados_2_json.geojson"))
+geojsonio::geojson_write(capa_estados_3_json, file = paste0(here::here(), "/2015/Output/Shapes/estados_3_json.geojson"))
+geojsonio::geojson_write(capa_estados_4_json, file = paste0(here::here(), "/2015/Output/Shapes/estados_4_json.geojson"))
+geojsonio::geojson_write(capa_estados_5_json, file = paste0(here::here(), "/2015/Output/Shapes/estados_5_json.geojson"))
+```
+
+
+### Topojson
+
+```{r}
+require(geojsonio)
+capa_estados_topojson <- capa_estados_json %>% geojsonio::geo2topo()
+capa_estados_1_topojson <- capa_estados_1_json %>% geojsonio::geo2topo()
+capa_estados_2_topojson <- capa_estados_2_json %>% geojsonio::geo2topo()
+capa_estados_3_topojson <- capa_estados_3_json %>% geojsonio::geo2topo()
+capa_estados_4_topojson <- capa_estados_4_json %>% geojsonio::geo2topo()
+capa_estados_5_topojson <- capa_estados_5_json %>% geojsonio::geo2topo()
+```
+
+```{r}
+# Se guarda como objeto
+saveRDS(capa_estados_topojson, paste0(here::here(), "/2015/Output/Shapes/capa_estados_topojson.rds"))
+saveRDS(capa_estados_1_topojson, paste0(here::here(), "/2015/Output/Shapes/capa_estados_1_topojson.rds"))
+saveRDS(capa_estados_2_topojson, paste0(here::here(), "/2015/Output/Shapes/capa_estados_2_topojson.rds"))
+saveRDS(capa_estados_3_topojson, paste0(here::here(), "/2015/Output/Shapes/capa_estados_3_topojson.rds"))
+saveRDS(capa_estados_4_topojson, paste0(here::here(), "/2015/Output/Shapes/capa_estados_4_topojson.rds"))
+saveRDS(capa_estados_5_topojson, paste0(here::here(), "/2015/Output/Shapes/capa_estados_5_topojson.rds"))
+```
+
+
+
