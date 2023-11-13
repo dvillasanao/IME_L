@@ -48,11 +48,11 @@ list.files(here::here(), all.files = TRUE)
 El resultado final se encuentra en el siguiente enlace:
 
 **Enlace:**
-<https://github.com/dvillasanao/IME_Leaflet/IME_2010-2020.html>
+<https://dvillasanao.github.io/IME_Leaflet/IME_2010-2020.html>
 
 <html>
 <body>
-<a href = "https://github.com/dvillasanao/IME_Leaflet/IME_2010-2020.html" target="_blank">
+<a href = "https://dvillasanao.github.io/IME_Leaflet/IME_2010-2020.html" target="_blank">
 <img src="https://github.com/dvillasanao/IME_Leaflet/blob/leaflet-branch/logo/img01.png?raw=true"/></a>
 </body>
 </html>
