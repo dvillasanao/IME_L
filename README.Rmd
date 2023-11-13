@@ -45,7 +45,7 @@ list.files(here::here(), all.files = TRUE)
 El resultado final se encuentra en el siguiente enlace:  
 
 
-**Enlace:** <https://indicemx.github.io/IMx_Mapa/IME_2010-2020.html>
+**Enlace:** <https://github.com/dvillasanao/IME_Leaflet/IME_2010-2020.html>
 
 <html>
 <body>

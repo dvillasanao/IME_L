@@ -75,8 +75,3 @@ rsconnect/
 /2010/Output/IME_2010.RData
 /2010/Output/PopUp/*.RDS
 /2010/Output/Shapes/*.rds
-
-## De manera temporal el flexdashboard
-IME_2010-2020.Rmd
-IME_2010-2020.html
-
