@@ -1,0 +1,326 @@
+---
+title: "Leaflet 2010"
+author: "Diana Villasana Ocampo"
+output:
+   html_document:
+      highlight: tango
+      theme: flatly
+      toc: yes
+      toc_depth: 2
+      toc_float:
+        collapsed: yes
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = FALSE, cache.lazy = FALSE, 
+                         eval = FALSE, class.source = "fold-show")
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+options(encoding = "UTF8")
+```   
+ 
+
+```{r, echo=FALSE}
+rm(list = ls())
+```
+
+```{r, echo=FALSE}
+setwd(here::here())
+```
+
+
+**Font Stlye**  
+
+```{r}
+require(showtext)
+# activar showtext
+showtext_auto()
+font_add_google("Montserrat", "montserrat")
+```
+
+
+```{r}
+require(dplyr)
+require(spdplyr)
+require(forcats)
+require(htmltools)
+require(leaflet)
+require(htmlwidgets)
+require(ggmap)
+require(ggplot2)
+require(ggridges)
+require(grDevices)
+require(ggpubr)
+require(forcats)
+require(rgdal)
+require(tibble)
+require(sf)
+require(stringr)
+require(RColorBrewer)
+require(leafgl)
+require(leaflet.extras)
+require(mapview)
+memory.size()
+invisible(utils::memory.limit(size = 6000000))
+require(doMC)            # Foreach Parallel Adaptor for 'parallel'
+registerDoMC(cores = 5)   # 
+```
+
+
+## Índice de marginación 2010
+
+**Bases de datos***
+- Nivel estatal
+
+```{r}
+load(paste0(here::here(), "/2010/Output/IME_2010.RData"))
+```
+
+**Se leen los objetos de los shapefiles**
+
+```{r}
+## Shapefiles
+shape_estados <- geojsonio::geojson_read(paste0(here::here(), "/2010/Output/Shapes/estados_json.geojson"), what = "sp")
+shape_estados_1 <- geojsonio::geojson_read(paste0(here::here(), "/2010/Output/Shapes/estados_1_json.geojson"), what = "sp")
+shape_estados_2 <- geojsonio::geojson_read(paste0(here::here(), "/2010/Output/Shapes/estados_2_json.geojson"), what = "sp")
+shape_estados_3 <- geojsonio::geojson_read(paste0(here::here(), "/2010/Output/Shapes/estados_3_json.geojson"), what = "sp") 
+shape_estados_4 <- geojsonio::geojson_read(paste0(here::here(), "/2010/Output/Shapes/estados_4_json.geojson"), what = "sp") 
+shape_estados_5 <- geojsonio::geojson_read(paste0(here::here(), "/2010/Output/Shapes/estados_5_json.geojson"), what = "sp")
+```
+
+
+
+```{R}
+## Data frames
+shape_estados_1@data <- shape_estados_1@data %>%
+                                        select(CVE_ENT)
+shape_estados_2@data <- shape_estados_2@data %>%
+                                        select(CVE_ENT)
+shape_estados_3@data <- shape_estados_3@data %>%
+                                        select(CVE_ENT)
+shape_estados_4@data <- shape_estados_4@data %>%
+                                        select(CVE_ENT)
+shape_estados_5@data <- shape_estados_5@data %>%
+                                        select(CVE_ENT)
+```
+
+
+Se extraen las bases de datos de los shapefiles, de esta manera evitar que pesen en los leaflet 
+
+```{R}
+## Data frames
+df_estado <- shape_estados@data 
+```
+
+
+## Paleta de colores 
+
+```{r}
+paleta <- c("#13322B", #Muy alto
+            "#086953", #Alto 
+            "#4C9562", #Medio
+            "#D1BB9E", #Bajo
+            "#C3BA6D") # Muy bajo
+
+## Paleta de colores                         
+mypalette <- leaflet::colorFactor(palette = paleta, 
+                                            domain = forcats::fct_relevel(IME_2010$GM_2010, c("Muy alto", "Alto", "Medio", "Bajo", "Muy bajo")), 
+                                            na.color = "transparent")
+```
+
+
+**Etiquetas del mapa**   
+
+```{r, results=FALSE}
+state_popup_1 <- readRDS(paste0(here::here(), "/2010/Output/PopUp/state_popup_estados1.RDS"))
+state_popup_2 <- readRDS(paste0(here::here(), "/2010/Output/PopUp/state_popup_estados2.RDS"))
+state_popup_3 <- readRDS(paste0(here::here(), "/2010/Output/PopUp/state_popup_estados3.RDS"))
+state_popup_4 <- readRDS(paste0(here::here(), "/2010/Output/PopUp/state_popup_estados4.RDS"))
+state_popup_5 <- readRDS(paste0(here::here(), "/2010/Output/PopUp/state_popup_estados5.RDS"))
+```
+
+
+# Mapa a nivel estatal
+
+## Leaflet
+
+```{r}
+# Estructura del título
+tag.map.title <- tags$style(HTML("
+  .leaflet-control.map-title { 
+    transform: translate(-50%,20%);
+    position: fixed !important;
+    left: 50%;
+    text-align: center;
+    padding-left: 10px; 
+    padding-right: 10px; 
+    background: rgba(255,255,255,0.75);
+    font-weight: bold;
+    font-size: 28px;
+  }
+ ")) 
+
+# Nota de página
+title <- tags$div(
+  tag.map.title, HTML("Fuentes:Estimaciones del CONAPO con base en el INEGI, Censo de Población y Vivienda 2010.")
+)  
+```
+
+```{r}
+bounding_box <- st_bbox(shape_estados)
+bounding_box
+```
+
+```{r}
+leaflet_estados <- leaflet(options = leafletOptions(minZoom = 5, maxZoom = 8)) %>% 
+                    addTiles() %>% 
+                     setView(lat = 23.6260333, lng = -102.5375005, zoom = 5) %>%
+                      setMaxBounds(lng1 = bounding_box[1],
+                                   lat1 = bounding_box[2],
+                                   lng2 = bounding_box[3],
+                                   lat2 = bounding_box[4]) %>%
+                       addProviderTiles(providers$OpenStreetMap, 
+                                         options = providerTileOptions(minZoom = 2, maxZoom = 8)) %>%
+                        # capa de grado "Muy alto"
+                        addPolygons(data = shape_estados_1,
+                                     fillColor = paleta[1], # Paleta de colores
+                                      fillOpacity = 0.8,
+                                       stroke = TRUE, # dibujar los bordes del polígono
+                                        weight = 1,  # line thickness
+                                         dashArray = "1",
+                                          opacity = 1,
+                                           color = "white",  # line colour 
+                                            highlight = highlightOptions(weight = 2,
+                                                                         color = "red", # Color de selección
+                                                                         dashArray = "",
+                                                                         fillOpacity = 0.6,
+                                                                         bringToFront = TRUE),
+                                     label = state_popup_1,  # Etiquetas
+                                     labelOptions = labelOptions(textOnly = FALSE, 
+                                                                 opacity = 0.8,
+                                                                  style = list("font-weight" = "normal", 
+                                                                               "font-family" = "montserrat",                 
+                                                                               opacity = 0.7,
+                                                                               padding = "3px 8px"),
+                                                                               textsize = '15px',
+                                                                                direction = "auto"),
+                                     group = "Muy alto") %>%
+                        # capa de grado "Alto"
+                        addPolygons(data = shape_estados_2,
+                                     fillColor = paleta[2], # Paleta de colores
+                                      fillOpacity = 0.8,
+                                       stroke = TRUE, # dibujar los bordes del polígono
+                                        weight = 1,  # line thickness
+                                         dashArray = "1",
+                                          opacity = 1,
+                                           color = "white",  # line colour 
+                                            highlight = highlightOptions(weight = 2,
+                                                                         color = "red", # Color de selección
+                                                                         dashArray = "",
+                                                                         fillOpacity = 0.6,
+                                                                         bringToFront = TRUE),
+                                     label = state_popup_2,  # Etiquetas
+                                     labelOptions = labelOptions(textOnly = FALSE, 
+                                                                 opacity = 0.8,
+                                                                  style = list("font-weight" = "normal", 
+                                                                               "font-family" = "montserrat",                 
+                                                                               opacity = 0.7,
+                                                                               padding = "3px 8px"),
+                                                                               textsize = '15px',
+                                                                               direction = "auto"),
+                                     group = "Alto") %>%
+                        # capa de grado "Medio"
+                        addPolygons(data = shape_estados_3,
+                                     fillColor = paleta[3], # Paleta de colores
+                                      fillOpacity = 0.8,
+                                       stroke = TRUE, # dibujar los bordes del polígono
+                                        weight = 1,  # line thickness
+                                         dashArray = "1",
+                                          opacity = 1,
+                                           color = "white",  # line colour 
+                                            highlight = highlightOptions(weight = 2,
+                                                                         color = "red", # Color de selección
+                                                                         dashArray = "",
+                                                                         fillOpacity = 0.6,
+                                                                         bringToFront = TRUE),
+                                     label = state_popup_3,  # Etiquetas
+                                     labelOptions = labelOptions(textOnly = FALSE, 
+                                                                 opacity = 0.8,
+                                                                  style = list("font-weight" = "normal", 
+                                                                               "font-family" = "montserrat",                 
+                                                                               opacity = 0.7,
+                                                                               padding = "3px 8px"),
+                                                                               textsize = '15px',
+                                                                                direction = "auto"),
+                                     group = "Medio") %>%
+                        # capa de grado "Bajo"
+                        addPolygons(data = shape_estados_4,
+                                     fillColor = paleta[4], # Paleta de colores
+                                      fillOpacity = 0.8,
+                                       stroke = TRUE, # dibujar los bordes del polígono
+                                        weight = 1,  # line thickness
+                                         dashArray = "1",
+                                          opacity = 1,
+                                           color = "white",  # line colour 
+                                            highlight = highlightOptions(weight = 2,
+                                                                         color = "red", # Color de selección
+                                                                         dashArray = "",
+                                                                         fillOpacity = 0.6,
+                                                                         bringToFront = TRUE),
+                                     label = state_popup_4,  # Etiquetas
+                                     labelOptions = labelOptions(textOnly = FALSE, 
+                                                                 opacity = 0.8,
+                                                                  style = list("font-weight" = "normal", 
+                                                                               "font-family" = "montserrat",                 
+                                                                               opacity = 0.7,
+                                                                               padding = "3px 8px"),
+                                                                               textsize = '15px',
+                                                                                direction = "auto"),
+                                     group = "Bajo") %>%
+                        # capa de grado "Muy bajo"
+                        addPolygons(data = shape_estados_5,
+                                     fillColor = paleta[5], # Paleta de colores
+                                      fillOpacity = 0.8,
+                                       stroke = TRUE, # dibujar los bordes del polígono
+                                        weight = 1,  # line thickness
+                                         dashArray = "1",
+                                          opacity = 1,
+                                           color = "white",  # line colour 
+                                            highlight = highlightOptions(weight = 2,
+                                                                         color = "red", # Color de selección
+                                                                         dashArray = "",
+                                                                         fillOpacity = 0.6,
+                                                                         bringToFront = TRUE),
+                                     label = state_popup_5,  # Etiquetas
+                                     labelOptions = labelOptions(textOnly = FALSE, 
+                                                                 opacity = 0.8,
+                                                                  style = list("font-weight" = "normal", 
+                                                                               "font-family" = "montserrat",                 
+                                                                               opacity = 0.7,
+                                                                               padding = "3px 8px"),
+                                                                               textsize = '15px',
+                                                                                direction = "auto"),
+                                     group = "Muy bajo") %>%
+                      addControl(title,
+                                 position = "bottomright") %>%
+                      addResetMapButton() %>%
+                       addSearchOSM() %>%
+                        addScaleBar(position = "bottomright", 
+                                     options = scaleBarOptions(maxWidth = 100, 
+                                                               metric = TRUE,
+                                                               imperial = TRUE, 
+                                                               updateWhenIdle = TRUE)) %>%
+                         addLegend("bottomright", 
+                                    colors = paleta, 
+                                     labels = c("Muy alto", "Alto", "Medio", "Bajo", "Muy bajo"),
+                                      values = ~forcats::fct_relevel(GM_2010, c("Muy alto", "Alto", "Medio", "Bajo", "Muy bajo")),
+                                       title = stringr::str_wrap("Grado de marginación", 15),
+                                        opacity =  0.7) %>%
+                          addLayersControl(overlayGroups = c("Muy alto", "Alto", "Medio", "Bajo", "Muy bajo"),
+                                            options = layersControlOptions(collapsed = TRUE)) 
+
+#saveRDS(leaflet_estados, paste0(here::here(), "/2010/Graficos/leaflet.RDS"))
+#saveWidget(leaflet_estados, paste0(here::here(), "/2010/Graficos/leaflet.html"), selfcontained = TRUE)
+
+leaflet_estados <- leaflet_estados %>% 
+                    mapshot(url = paste0(here::here(), "/IME_2010.html")) 
+```

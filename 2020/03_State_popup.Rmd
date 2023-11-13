@@ -1,0 +1,301 @@
+---
+title: "Popups"
+author: "Diana Villasana Ocampo"
+output:
+   html_document:
+      highlight: tango
+      theme: flatly
+      toc: yes
+      toc_depth: 2
+      toc_float:
+        collapsed: yes
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = FALSE, cache.lazy = FALSE, 
+                         eval = FALSE, class.source = "fold-show")
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+options(digits = 2, encoding = "UTF8")
+```   
+ 
+
+```{r, echo=FALSE}
+rm(list = ls())
+```
+
+```{r, echo=FALSE}
+setwd(here::here())
+```
+
+
+**Font Stlye**  
+
+```{r, eval = FALSE}
+require(showtext)
+# activar showtext
+showtext_auto()
+font_add_google("Montserrat", "montserrat")
+```
+
+
+
+```{r}
+require(dplyr)
+require(forcats)
+require(tibble)
+require(sf)
+require(sp)
+require(stringr)
+require(dplyr)
+require(leaflet)
+require(leafgl)
+require(RColorBrewer)
+```
+
+# Base de datos   
+
+```{r}
+load(paste0(here::here(), "/2020/Output/IME_2020.RData"))
+```
+
+
+# Shapefiles 
+
+```{r}
+## Shapefiles
+shape_estados_1 <- geojsonio::geojson_read(paste0(here::here(), "/2020/Output/Shapes/estados_1_json.geojson"), what = "sp")
+shape_estados_2 <- geojsonio::geojson_read(paste0(here::here(), "/2020/Output/Shapes/estados_2_json.geojson"), what = "sp")
+shape_estados_3 <- geojsonio::geojson_read(paste0(here::here(), "/2020/Output/Shapes/estados_3_json.geojson"), what = "sp") 
+shape_estados_4 <- geojsonio::geojson_read(paste0(here::here(), "/2020/Output/Shapes/estados_4_json.geojson"), what = "sp") 
+shape_estados_5 <- geojsonio::geojson_read(paste0(here::here(), "/2020/Output/Shapes/estados_5_json.geojson"), what = "sp")
+```
+
+
+# Paleta de colores 
+
+```{r}
+paleta <- c("#13322B", #Muy alto
+            "#086953", #Alto 
+            "#4C9562", #Medio
+            "#D1BB9E", #Bajo
+            "#C3BA6D") # Muy bajo
+
+mypalette <- leaflet::colorFactor(palette = paleta, 
+                                   domain = forcats::fct_relevel(IME_2020$GM_2020, c("Muy alto", "Alto", "Medio", "Bajo", "Muy bajo")), 
+                                    na.color = "transparent")
+```
+
+
+## Popup `Muy alto`
+
+```{r}
+## Paleta de colores                         
+p <- shape_estados_1 %>% 
+      leaflet() %>% 
+       addTiles() %>% 
+        setView(lat = 23.634501, lng = -102.552784, zoom = 5) %>%
+         addProviderTiles(providers$Esri.WorldImagery) %>%
+          addPolygons(fillColor = ~mypalette(GM_2020))
+
+fillColor <- p[["x"]][["calls"]][[3]][["args"]][[4]][["fillColor"]]
+
+df_estado <- shape_estados_1@data %>%
+              select(-GM_2020) %>%
+               inner_join(., IME_2020 %>% 
+                              mutate(across(.cols = c(3:13,15), as.numeric)) %>%
+                               filter(GM_2020 %in% "Muy alto"),
+                                by = c("CVE_ENT"))
+
+## Etiquetas del mapa a nivel municipal 
+state_popup_estados <- paste('<font size="3.5"; font-family: "Century Gothic"><strong>',"Estado:",'</strong>','<strong>', df_estado$NOM_ENT,'</strong></font>','<br/>',
+                            '<font size="2.5"; font-family: "Century Gothic"><strong>',"Población Total:",'</strong></font>','<font size="2"; font-family: "Century Gothic"; color=', fillColor,'><strong>', formatC(df_estado$POB_TOT, format = "f", big.mark = " ", digits = 0),'</strong></font>','<br/>',
+                            '<font size="2.5"; font-family: "Century Gothic"><strong>',"Grado de marginación:",'</strong></font>','<font size="2"; font-family: "Century Gothic"; color=', fillColor,'><strong>', df_estado$GM_2020,'</strong></font>','<br/>',
+                            '<font size="2.5"; font-family: "Century Gothic"><strong>',"Índice de marginación:",'</strong></font>','<font size="2"; font-family: "Century Gothic"; color=', fillColor,'><strong>', format(round(df_estado$IM_2020, 2), nsmall = 1),'</strong></font>','<br/>',
+                            '<font size="2.5"; font-family: "Century Gothic"><strong>',"Índice de marginación normalizado:",'</strong></font>','<font size="2"; font-family: "Century Gothic"; color=', fillColor,'><strong>', format(round(df_estado$IMN_2020, 2), nsmall = 1),'</strong></font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Población de 15 años y más analfabeta:",'</strong>', round(df_estado$ANALF, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Población de 15 años o más sin educación básica:",'</strong>', round(df_estado$SBASC, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Ocupantes en viviendas paticulares sin drenaje ni excusado:",'</strong>', round(df_estado$OVSDE, 2),'<br/>', 
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Ocupantes en viviendas paticulares sin energía eléctrica:",'</strong>', round(df_estado$OVSEE, 2),'</font>','<br/>', 
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Ocupantes en viviendas paticulares sin agua entubada:",'</strong>', round(df_estado$OVSAE, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Ocupantes en viviendas paticulares con piso de tierra:",'</strong>', round(df_estado$OVPT, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Viviendas paticulares con algún nivel de hacinamiento:",'</strong>', round(df_estado$VHAC, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Población en localidades con menos de \n 5 000 habitantes:",'</strong>', round(df_estado$PL.5000, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Población ocupada con ingresos menores a 2 salarios mínimos:",'</strong>', round(df_estado$PO2SM, 2),'</font>'
+                            ) %>% 
+     lapply(htmltools::HTML)
+
+
+saveRDS(state_popup_estados, paste0(here::here(), "/2020/Output/PopUp/state_popup_estados1.RDS"))
+```
+
+## Popup `Alto`
+
+```{r}
+## Paleta de colores                         
+p <- shape_estados_2 %>% 
+      leaflet() %>% 
+       addTiles() %>% 
+        setView(lat = 23.634501, lng = -102.552784, zoom = 5) %>%
+         addProviderTiles(providers$Esri.WorldImagery) %>%
+          addPolygons(fillColor = ~mypalette(GM_2020))
+
+fillColor <- p[["x"]][["calls"]][[3]][["args"]][[4]][["fillColor"]]
+
+df_estado <- shape_estados_2@data %>%
+               select(-GM_2020) %>%
+                inner_join(., IME_2020 %>% 
+                               mutate(across(.cols = c(3:13,15), as.numeric)) %>%
+                                filter(GM_2020 %in% "Alto"),
+                                 by = c("CVE_ENT"))
+
+## Etiquetas del mapa a nivel municipal 
+state_popup_estados <- paste('<font size="3.5"; font-family: "Century Gothic"><strong>',"Estado:",'</strong>','<strong>', df_estado$NOM_ENT,'</strong></font>','<br/>',
+                            '<font size="2.5"; font-family: "Century Gothic"><strong>',"Población Total:",'</strong></font>','<font size="2"; font-family: "Century Gothic"; color=', fillColor,'><strong>', formatC(df_estado$POB_TOT, format = "f", big.mark = " ", digits = 0),'</strong></font>','<br/>',
+                            '<font size="2.5"; font-family: "Century Gothic"><strong>',"Grado de marginación:",'</strong></font>','<font size="2"; font-family: "Century Gothic"; color=', fillColor,'><strong>', df_estado$GM_2020,'</strong></font>','<br/>',
+                            '<font size="2.5"; font-family: "Century Gothic"><strong>',"Índice de marginación:",'</strong></font>','<font size="2"; font-family: "Century Gothic"; color=', fillColor,'><strong>', format(round(df_estado$IM_2020, 2), nsmall = 1),'</strong></font>','<br/>',
+                            '<font size="2.5"; font-family: "Century Gothic"><strong>',"Índice de marginación normalizado:",'</strong></font>','<font size="2"; font-family: "Century Gothic"; color=', fillColor,'><strong>', format(round(df_estado$IMN_2020, 2), nsmall = 1),'</strong></font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Población de 15 años y más analfabeta:",'</strong>', round(df_estado$ANALF, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Población de 15 años o más sin educación básica:",'</strong>', round(df_estado$SBASC, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Ocupantes en viviendas paticulares sin drenaje ni excusado:",'</strong>', round(df_estado$OVSDE, 2),'<br/>', 
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Ocupantes en viviendas paticulares sin energía eléctrica:",'</strong>', round(df_estado$OVSEE, 2),'</font>','<br/>', 
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Ocupantes en viviendas paticulares sin agua entubada:",'</strong>', round(df_estado$OVSAE, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Ocupantes en viviendas paticulares con piso de tierra:",'</strong>', round(df_estado$OVPT, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Viviendas paticulares con algún nivel de hacinamiento:",'</strong>', round(df_estado$VHAC, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Población en localidades con menos de \n 5 000 habitantes:",'</strong>', round(df_estado$PL.5000, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Población ocupada con ingresos menores a 2 salarios mínimos:",'</strong>', round(df_estado$PO2SM, 2),'</font>'
+                            ) %>% 
+     lapply(htmltools::HTML)
+
+
+saveRDS(state_popup_estados, paste0(here::here(), "/2020/Output/PopUp/state_popup_estados2.RDS"))
+```
+
+
+## Popup `Medio`
+
+
+```{r}
+## Paleta de colores                         
+p <- shape_estados_3 %>% 
+      leaflet() %>% 
+       addTiles() %>% 
+        setView(lat = 23.634501, lng = -102.552784, zoom = 5) %>%
+         addProviderTiles(providers$Esri.WorldImagery) %>%
+          addPolygons(fillColor = ~mypalette(GM_2020))
+
+fillColor <- p[["x"]][["calls"]][[3]][["args"]][[4]][["fillColor"]]
+
+df_estado <- shape_estados_3@data %>%
+               select(-GM_2020) %>%
+                inner_join(., IME_2020 %>% 
+                               mutate(across(.cols = c(3:13,15), as.numeric)) %>%
+                                filter(GM_2020 %in% "Medio"),
+                                 by = c("CVE_ENT"))
+
+## Etiquetas del mapa a nivel municipal 
+state_popup_estados <- paste('<font size="3.5"; font-family: "Century Gothic"><strong>',"Estado:",'</strong>','<strong>', df_estado$NOM_ENT,'</strong></font>','<br/>',
+                            '<font size="2.5"; font-family: "Century Gothic"><strong>',"Población Total:",'</strong></font>','<font size="2"; font-family: "Century Gothic"; color=', fillColor,'><strong>', formatC(df_estado$POB_TOT, format = "f", big.mark = " ", digits = 0),'</strong></font>','<br/>',
+                            '<font size="2.5"; font-family: "Century Gothic"><strong>',"Grado de marginación:",'</strong></font>','<font size="2"; font-family: "Century Gothic"; color=', fillColor,'><strong>', df_estado$GM_2020,'</strong></font>','<br/>',
+                            '<font size="2.5"; font-family: "Century Gothic"><strong>',"Índice de marginación:",'</strong></font>','<font size="2"; font-family: "Century Gothic"; color=', fillColor,'><strong>', format(round(df_estado$IM_2020, 2), nsmall = 1),'</strong></font>','<br/>',
+                            '<font size="2.5"; font-family: "Century Gothic"><strong>',"Índice de marginación normalizado:",'</strong></font>','<font size="2"; font-family: "Century Gothic"; color=', fillColor,'><strong>', format(round(df_estado$IMN_2020, 2), nsmall = 1),'</strong></font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Población de 15 años y más analfabeta:",'</strong>', round(df_estado$ANALF, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Población de 15 años o más sin educación básica:",'</strong>', round(df_estado$SBASC, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Ocupantes en viviendas paticulares sin drenaje ni excusado:",'</strong>', round(df_estado$OVSDE, 2),'<br/>', 
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Ocupantes en viviendas paticulares sin energía eléctrica:",'</strong>', round(df_estado$OVSEE, 2),'</font>','<br/>', 
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Ocupantes en viviendas paticulares sin agua entubada:",'</strong>', round(df_estado$OVSAE, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Ocupantes en viviendas paticulares con piso de tierra:",'</strong>', round(df_estado$OVPT, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Viviendas paticulares con algún nivel de hacinamiento:",'</strong>', round(df_estado$VHAC, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Población en localidades con menos de \n 5 000 habitantes:",'</strong>', round(df_estado$PL.5000, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Población ocupada con ingresos menores a 2 salarios mínimos:",'</strong>', round(df_estado$PO2SM, 2),'</font>'
+                            ) %>% 
+     lapply(htmltools::HTML)
+
+
+saveRDS(state_popup_estados, paste0(here::here(), "/2020/Output/PopUp/state_popup_estados3.RDS"))
+```
+
+## Popup `Bajo`
+
+
+```{r}
+## Paleta de colores                         
+p <- shape_estados_4 %>% 
+      leaflet() %>% 
+       addTiles() %>% 
+        setView(lat = 23.634501, lng = -102.552784, zoom = 5) %>%
+         addProviderTiles(providers$Esri.WorldImagery) %>%
+          addPolygons(fillColor = ~mypalette(GM_2020))
+
+fillColor <- p[["x"]][["calls"]][[3]][["args"]][[4]][["fillColor"]]
+
+df_estado <- shape_estados_4@data %>%
+               select(-GM_2020) %>%
+                inner_join(., IME_2020 %>% 
+                               mutate(across(.cols = c(3:13,15), as.numeric)) %>%
+                                filter(GM_2020 %in% "Bajo"),
+                                 by = c("CVE_ENT"))
+
+## Etiquetas del mapa a nivel municipal 
+state_popup_estados <- paste('<font size="3.5"; font-family: "Century Gothic"><strong>',"Estado:",'</strong>','<strong>', df_estado$NOM_ENT,'</strong></font>','<br/>',
+                            '<font size="2.5"; font-family: "Century Gothic"><strong>',"Población Total:",'</strong></font>','<font size="2"; font-family: "Century Gothic"; color=', fillColor,'><strong>', formatC(df_estado$POB_TOT, format = "f", big.mark = " ", digits = 0),'</strong></font>','<br/>',
+                            '<font size="2.5"; font-family: "Century Gothic"><strong>',"Grado de marginación:",'</strong></font>','<font size="2"; font-family: "Century Gothic"; color=', fillColor,'><strong>', df_estado$GM_2020,'</strong></font>','<br/>',
+                            '<font size="2.5"; font-family: "Century Gothic"><strong>',"Índice de marginación:",'</strong></font>','<font size="2"; font-family: "Century Gothic"; color=', fillColor,'><strong>', format(round(df_estado$IM_2020, 2), nsmall = 1),'</strong></font>','<br/>',
+                            '<font size="2.5"; font-family: "Century Gothic"><strong>',"Índice de marginación normalizado:",'</strong></font>','<font size="2"; font-family: "Century Gothic"; color=', fillColor,'><strong>', format(round(df_estado$IMN_2020, 2), nsmall = 1),'</strong></font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Población de 15 años y más analfabeta:",'</strong>', round(df_estado$ANALF, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Población de 15 años o más sin educación básica:",'</strong>', round(df_estado$SBASC, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Ocupantes en viviendas paticulares sin drenaje ni excusado:",'</strong>', round(df_estado$OVSDE, 2),'<br/>', 
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Ocupantes en viviendas paticulares sin energía eléctrica:",'</strong>', round(df_estado$OVSEE, 2),'</font>','<br/>', 
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Ocupantes en viviendas paticulares sin agua entubada:",'</strong>', round(df_estado$OVSAE, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Ocupantes en viviendas paticulares con piso de tierra:",'</strong>', round(df_estado$OVPT, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Viviendas paticulares con algún nivel de hacinamiento:",'</strong>', round(df_estado$VHAC, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Población en localidades con menos de \n 5 000 habitantes:",'</strong>', round(df_estado$PL.5000, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Población ocupada con ingresos menores a 2 salarios mínimos:",'</strong>', round(df_estado$PO2SM, 2),'</font>'
+                            ) %>% 
+     lapply(htmltools::HTML)
+
+
+saveRDS(state_popup_estados, paste0(here::here(), "/2020/Output/PopUp/state_popup_estados4.RDS"))
+```
+
+## Popup `Muy Bajo`
+
+
+```{r}
+## Paleta de colores                         
+p <- shape_estados_5 %>% 
+      leaflet() %>% 
+       addTiles() %>% 
+        setView(lat = 23.634501, lng = -102.552784, zoom = 5) %>%
+         addProviderTiles(providers$Esri.WorldImagery) %>%
+          addPolygons(fillColor = ~mypalette(GM_2020))
+
+fillColor <- p[["x"]][["calls"]][[3]][["args"]][[4]][["fillColor"]]
+
+df_estado <- shape_estados_5@data %>%
+               select(-GM_2020) %>%
+                inner_join(., IME_2020 %>% 
+                               mutate(across(.cols = c(3:13,15), as.numeric)) %>%
+                                filter(GM_2020 %in% "Muy bajo"),
+                                 by = c("CVE_ENT"))
+
+## Etiquetas del mapa a nivel municipal 
+state_popup_estados <- paste('<font size="3.5"; font-family: "Century Gothic"><strong>',"Estado:",'</strong>','<strong>', df_estado$NOM_ENT,'</strong></font>','<br/>',
+                            '<font size="2.5"; font-family: "Century Gothic"><strong>',"Población Total:",'</strong></font>','<font size="2"; font-family: "Century Gothic"; color=', fillColor,'><strong>', formatC(df_estado$POB_TOT, format = "f", big.mark = " ", digits = 0),'</strong></font>','<br/>',
+                            '<font size="2.5"; font-family: "Century Gothic"><strong>',"Grado de marginación:",'</strong></font>','<font size="2"; font-family: "Century Gothic"; color=', fillColor,'><strong>', df_estado$GM_2020,'</strong></font>','<br/>',
+                            '<font size="2.5"; font-family: "Century Gothic"><strong>',"Índice de marginación:",'</strong></font>','<font size="2"; font-family: "Century Gothic"; color=', fillColor,'><strong>', format(round(df_estado$IM_2020, 2), nsmall = 1),'</strong></font>','<br/>',
+                            '<font size="2.5"; font-family: "Century Gothic"><strong>',"Índice de marginación normalizado:",'</strong></font>','<font size="2"; font-family: "Century Gothic"; color=', fillColor,'><strong>', format(round(df_estado$IMN_2020, 2), nsmall = 1),'</strong></font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Población de 15 años y más analfabeta:",'</strong>', round(df_estado$ANALF, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Población de 15 años o más sin educación básica:",'</strong>', round(df_estado$SBASC, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Ocupantes en viviendas paticulares sin drenaje ni excusado:",'</strong>', round(df_estado$OVSDE, 2),'<br/>', 
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Ocupantes en viviendas paticulares sin energía eléctrica:",'</strong>', round(df_estado$OVSEE, 2),'</font>','<br/>', 
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Ocupantes en viviendas paticulares sin agua entubada:",'</strong>', round(df_estado$OVSAE, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Ocupantes en viviendas paticulares con piso de tierra:",'</strong>', round(df_estado$OVPT, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Viviendas paticulares con algún nivel de hacinamiento:",'</strong>', round(df_estado$VHAC, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Población en localidades con menos de \n 5 000 habitantes:",'</strong>', round(df_estado$PL.5000, 2),'</font>','<br/>',
+                            '<font size="2"; font-family: "Century Gothic"><strong>',"% Población ocupada con ingresos menores a 2 salarios mínimos:",'</strong>', round(df_estado$PO2SM, 2),'</font>'
+                            ) %>% 
+     lapply(htmltools::HTML)
+
+
+saveRDS(state_popup_estados, paste0(here::here(), "/2020/Output/PopUp/state_popup_estados5.RDS"))
+```
